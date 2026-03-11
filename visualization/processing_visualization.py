@@ -109,8 +109,10 @@ def plot_metrics(results, n_fam, bess_size):
     df["time_resolution"] = Categorical(df["time_resolution"], categories=order, ordered=True)
 
     plt.figure(figsize=(8, 5))
-    ax = sns.scatterplot(data=df, x="time_resolution", y="value", hue="metric", style="metric", palette=palette, s=200,
-                         alpha=0.8, hue_order=palette.keys())
+    ax = sns.scatterplot(data=df, x="time_resolution", y="value", hue="metric", style="metric", palette=palette, s=40,
+                         hue_order=palette.keys(), legend=False, edgecolor="darkgrey", linewidth=1)
+    sns.scatterplot(data=df, x="time_resolution", y="value", hue="metric", style="metric", palette=palette, s=200,
+                         alpha=0.7, hue_order=palette.keys(), ax=ax, edgecolor="darkgrey", linewidth=1)
 
     # Add reference lines
     for y in [0, 0.5, 1]:
@@ -122,7 +124,7 @@ def plot_metrics(results, n_fam, bess_size):
 
     plt.xlabel('Time resolution')
     plt.ylabel('Metric value')
-    plt.title(f'Number of families={n_fam}, bess_size={bess_size} kWh')
+    plt.title(f'Number of families={n_fam}, Battery capacity={bess_size} kWh')
     plt.legend(title="Metric type")
     plt.tight_layout()
     plt.show()

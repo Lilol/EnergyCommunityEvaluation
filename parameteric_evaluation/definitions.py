@@ -130,7 +130,7 @@ def make_combined_enum(name, first_enum, second_enum, base_cls=Parameter):
             obj = object.__new__(cls)
             obj._pair = (first, second)  # store tuple internally
             # The "real" value of the Enum will be a string
-            obj._value_ = f"{second.value.title()} with {first.value.title()} resolution"
+            obj._value_ = f"{second.value.title()} with '{first.value.title()}' resolution"
             return obj
 
         @property

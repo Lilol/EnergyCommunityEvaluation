@@ -8,3 +8,5 @@ openpyxl
 netCDF4
 pytest
 hypothesis
+seaborn
+scipy

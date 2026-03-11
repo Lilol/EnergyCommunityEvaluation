@@ -75,7 +75,7 @@ class TargetMetricParameterCalculator(Calculator):
 
         # Evaluate and update
         if np.isclose(mid, current_value, 0.05):  # Check if close match is found
-            logger.info(f"Found close match: {mid},{current_value}.")
+            logger.info(f"Found close match: {mid:.4f},{current_value}.")
             return n_fam_mid, mid
 
         elif mid < current_value:
@@ -112,7 +112,7 @@ class TargetMetricParameterCalculator(Calculator):
         n_fam_low = 0
         low = cls.eval(input_da, n_fam_low)
         if low >= val:  # Check if requirement is already satisfied
-            logger.info(f"Requirement ({val}) already satisfied with lower value={low:.3f}!")
+            logger.info(f"Requirement ({val}) already satisfied with higher value={low:.3f}!")
             return n_fam_low, low
 
         # Evaluate point that can be reached
@@ -128,9 +128,12 @@ class TargetMetricParameterCalculator(Calculator):
 
 # Dynamically create calculator subclasses
 for metric in LoadMatchingMetric:
-    if metric == LoadMatchingMetric.INVALID:
+    if not metric.valid():
         continue
 
+    if not configuration.config.has_option("parametric_evaluation",
+                                           f"{metric.value.lower().replace(' ', '_')}_targets"):
+        continue
     class_name = f"{metric.value.replace(' ', '')}TargetCalculator"
 
 
@@ -155,7 +158,7 @@ class TargetMetricEvaluator(ParametricEvaluator):
     @classmethod
     @override
     def invoke(cls, *args, **kwargs):
-        logger.info(f"Invoking parametric evaluator '{cls._name}'...")
+        logger.info(f"Invoke parametric evaluator '{cls._name}'...")
         dataset = kwargs.pop('dataset', args[0])
         results = kwargs.pop("results", args[1])
         dfs = []
@@ -183,8 +186,9 @@ class TargetMetricEvaluator(ParametricEvaluator):
 
     @staticmethod
     def get_eval_metrics(evaluation_type):
-        return {f"{m.value.replace(' ', '')}TargetCalculator": TargetMetricParameterCalculator.get_subclass(f"{m.value.replace(' ', '')}TargetCalculator") for m in
-                LoadMatchingMetric if m.valid()}
+        return {f"{m.value.replace(' ', '')}TargetCalculator": TargetMetricParameterCalculator.get_subclass(
+            f"{m.value.replace(' ', '')}TargetCalculator") for m in
+                LoadMatchingMetric if m.valid() and configuration.config.has_option("parametric_evaluation",f"{m.value.lower().replace(' ', '_')}_targets")}
 
     @classmethod
     def get_targets(cls, metric):
@@ -229,7 +233,7 @@ class TargetMetricEvaluator(ParametricEvaluator):
             results_da.loc[{"target": target}] = [nf, val]
 
             # # Exit if targets cannot be reached
-            if val < target:
+            if not np.isclose(val, target, 0.05) and val < target:
                 logger.warning(f"Exiting loop because {calculator._metric.value}={target} cannot be reached.")
                 break
             if nf >= cls._max_number_of_households:
@@ -238,7 +242,6 @@ class TargetMetricEvaluator(ParametricEvaluator):
         logger.info(f"\ntarget set; targets reached; number of families:\n{'\n'.join(f'{t:.2f}; '
                                                                                      f'{row.metric_realized:.2f}; '
                                                                                      f'{row.number_of_families}' for t, row in results.iterrows())}")
-
         # Expand dimensions to include metric name
         results_da = results_da.expand_dims({"metric": [calculator._metric.value]})
 
