@@ -29,11 +29,18 @@ else:
 
 logger = logging.getLogger(__name__)
 
+_metric_family_ratio = {
+    LoadMatchingMetric.SELF_CONSUMPTION: "+",
+    LoadMatchingMetric.SELF_SUFFICIENCY: "-",
+    LoadMatchingMetric.SELF_PRODUCTION: "+",
+}
+
 
 class TargetMetricParameterCalculator(Calculator):
     _key = None
     _metric = LoadMatchingMetric.INVALID
     _param_calculator = None  # Will be set in subclasses
+    _search_direction = _metric_family_ratio.get(_metric, " ")  # Default to positive if not specified
 
     @classmethod
     def calculate(cls, input_da: OmnesDataArray | None = None,
@@ -67,7 +74,10 @@ class TargetMetricParameterCalculator(Calculator):
         # Stopping criterion (considering that n_fam is integer)
         if n_fam_high - n_fam_low <= step:
             logger.info("Procedure ended without exact match.")
-            return n_fam_high, cls.eval(da, n_fam_high)
+            return (n_fam_high, cls.eval(da, n_fam_high)) if cls._search_direction == "+" else (n_fam_low,
+                                                                                                       cls.eval(
+                                                                                                           da,
+                                                                                                           n_fam_low))
 
         # Bisection of the current space
         n_fam_mid = cls.find_closer((n_fam_low + n_fam_high) // 2, step)
@@ -78,10 +88,22 @@ class TargetMetricParameterCalculator(Calculator):
             logger.info(f"Found close match: {mid:.4f},{current_value}.")
             return n_fam_mid, mid
 
-        elif mid < current_value:
-            return cls.find_best_value(da, n_fam_high, n_fam_mid, step, current_value)
-        else:
-            return cls.find_best_value(da, n_fam_mid, n_fam_low, step, current_value)
+        # For "+": mid < target means we need MORE families (search upper half)
+        # For "-": mid < target means we need FEWER families (search lower half)
+        if cls._search_direction == "+":
+            if mid < current_value:
+                # Need more families -> search upper half
+                return cls.find_best_value(da, n_fam_high, n_fam_mid, step, current_value)
+            else:
+                # Need fewer families -> search lower half
+                return cls.find_best_value(da, n_fam_mid, n_fam_low, step, current_value)
+        else:  # "-" direction
+            if mid < current_value:
+                # Need fewer families -> search lower half
+                return cls.find_best_value(da, n_fam_mid, n_fam_low, step, current_value)
+            else:
+                # Need more families -> search upper half
+                return cls.find_best_value(da, n_fam_high, n_fam_mid, step, current_value)
 
     @classmethod
     def call(cls, input_da: OmnesDataArray | None = None,
@@ -93,7 +115,7 @@ class TargetMetricParameterCalculator(Calculator):
         ratio.
 
         Parameters:
-        - val (float): Target metric ratio.
+        - target_value (float): Target metric ratio.
         - n_fam_max (int): Maximum number of families.
         - p_plants (numpy.ndarray): Array of power values from plants.
         - p_users (numpy.ndarray): Array of power values consumed by users.
@@ -105,25 +127,59 @@ class TargetMetricParameterCalculator(Calculator):
             corresponding shared energy ratio.
         """
 
-        # Evaluate starting point
+        # Goal: Find number of families that achieves target metric value (or as close as possible)
         n_fam_max = kwargs.get("maximum_number_of_families")
-        val = kwargs.get("target_value")
+        n_fam_min = kwargs.get("minimum_number_of_families", 0)
+        target_value = kwargs.get("target_value")
         step = kwargs.get("step_size", 5)
-        n_fam_low = 0
-        low = cls.eval(input_da, n_fam_low)
-        if low >= val:  # Check if requirement is already satisfied
-            logger.info(f"Requirement ({val}) already satisfied with higher value={low:.3f}!")
-            return n_fam_low, low
 
-        # Evaluate point that can be reached
-        n_fam_high = n_fam_max
-        high = cls.eval(input_da, n_fam_high)
-        if high <= val:  # Check if requirement is satisfied
-            logger.info(f"Requirement ({val}) cannot be satisfied, as max. value={high:.3f}!")
-            return n_fam_high, high
+        # Evaluate boundary values to check if target is reachable
+        value_at_min = cls.eval(input_da, n_fam_min)
+        value_at_max = cls.eval(input_da, n_fam_max)
 
-        # Loop to find best value
-        return cls.find_best_value(input_da, n_fam_high, n_fam_low, step, val)
+        # Check if target is within the reachable range
+        min_val = min(value_at_min, value_at_max)
+        max_val = max(value_at_min, value_at_max)
+
+        if target_value < min_val or target_value > max_val:
+            # Target is outside reachable range - return closest boundary
+            if abs(value_at_min - target_value) < abs(value_at_max - target_value):
+                logger.info(
+                    f"Target ({target_value}) outside range [{min_val:.3f}, {max_val:.3f}], closest is min families ({n_fam_min}), value={value_at_min:.3f}!")
+                return n_fam_min, value_at_min
+            else:
+                logger.info(
+                    f"Target ({target_value}) outside range [{min_val:.3f}, {max_val:.3f}], closest is max families ({n_fam_max}), value={value_at_max:.3f}!")
+                return n_fam_max, value_at_max
+
+        # Target is within range - do bisection search to find closest match
+        return cls.find_best_value(input_da, n_fam_max, n_fam_min, step, target_value)
+
+    @classmethod
+    def requirement_satisfied(cls, current_value, target_value):
+        """Check if the requirement is satisfied. For all metrics, a target is satisfied when current >= target.
+        The search direction (+ or -) only affects HOW we search for the solution, not WHEN it's satisfied."""
+        if np.isclose(current_value, target_value, 0.05):
+            return True
+        return current_value >= target_value
+
+    @classmethod
+    def order_targets(cls, targets):
+        """Order targets in ascending order (easy to hard) for both directions.
+        This allows us to process achievable targets first and skip harder ones efficiently."""
+        return sorted(targets)  # Always ascending - process easy to hard
+
+    @classmethod
+    def family_count_limit_reached(cls, n_fam, n_fam_max, n_fam_min):
+        """Check if the family count limit is reached based on the search direction."""
+        if cls._search_direction == "+":
+            return n_fam >= n_fam_max
+        elif cls._search_direction == "-":
+            return n_fam <= n_fam_min
+        else:
+            logger.warning(
+                f"Unknown search direction '{cls._search_direction}' for metric '{cls._metric.value}'. Assuming family count limit is not reached.")
+            return False  # Default to False if search direction is unknown
 
 
 # Dynamically create calculator subclasses
@@ -142,6 +198,7 @@ for metric in LoadMatchingMetric:
             _key = f"{metric.value.replace(' ', '')}TargetCalculator"
             _metric = m
             _param_calculator = PhysicalParameterCalculator.create(m)
+            _search_direction = _metric_family_ratio.get(m, " ")  # Default to positive if not specified
 
         _Calc.__name__ = class_name
         return _Calc
@@ -154,6 +211,7 @@ class TargetMetricEvaluator(ParametricEvaluator):
     _name = "Target metric evaluator"
     _key = ParametricEvaluationType.METRIC_TARGETS
     _max_number_of_households = configuration.config.getint("parametric_evaluation", "max_number_of_households")
+    _min_number_of_households = configuration.config.getint("parametric_evaluation", "min_number_of_households", 0)
 
     @classmethod
     @override
@@ -188,7 +246,8 @@ class TargetMetricEvaluator(ParametricEvaluator):
     def get_eval_metrics(evaluation_type):
         return {f"{m.value.replace(' ', '')}TargetCalculator": TargetMetricParameterCalculator.get_subclass(
             f"{m.value.replace(' ', '')}TargetCalculator") for m in
-                LoadMatchingMetric if m.valid() and configuration.config.has_option("parametric_evaluation",f"{m.value.lower().replace(' ', '_')}_targets")}
+            LoadMatchingMetric if m.valid() and configuration.config.has_option("parametric_evaluation",
+                                                                                f"{m.value.lower().replace(' ', '_')}_targets")}
 
     @classmethod
     def get_targets(cls, metric):
@@ -216,29 +275,16 @@ class TargetMetricEvaluator(ParametricEvaluator):
         )
 
         # Evaluate number of families for each target
-        val, nf = 0, 0
-        for target in targets:
-            # # Skip if previous target was already higher than this
-            if val >= target:
-                results.loc[target, ["number_of_families", "metric_realized"]] = nf, val
-                results_da.loc[{"target": target}] = [nf, val]
-                continue
-
-            # # Find number of families to reach target
+        for target in calculator.order_targets(targets):
+            # Find number of families to achieve target (or closest match)
             nf, val = calculator.call(dataset, target_value=target,
-                                      maximum_number_of_families=cls._max_number_of_households, step_size=5)
+                                      maximum_number_of_families=cls._max_number_of_households,
+                                      minimum_number_of_families=cls._min_number_of_households,
+                                      step_size=5)
 
-            # Update
+            # Update results
             results.loc[target, ["number_of_families", "metric_realized"]] = nf, val
             results_da.loc[{"target": target}] = [nf, val]
-
-            # # Exit if targets cannot be reached
-            if not np.isclose(val, target, 0.05) and val < target:
-                logger.warning(f"Exiting loop because {calculator._metric.value}={target} cannot be reached.")
-                break
-            if nf >= cls._max_number_of_households:
-                logger.warning(f"Exiting loop because max families ({cls._max_number_of_households}) was reached.")
-                break
         logger.info(f"\ntarget set; targets reached; number of families:\n{'\n'.join(f'{t:.2f}; '
                                                                                      f'{row.metric_realized:.2f}; '
                                                                                      f'{row.number_of_families}' for t, row in results.iterrows())}")
