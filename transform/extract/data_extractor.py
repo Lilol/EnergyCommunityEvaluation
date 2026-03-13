@@ -108,7 +108,7 @@ class ExtractDayTypesInTimeframe(Extract):
         return xr.concat([
             OmnesDataArray(df.astype(int).set_index(df.index.day).rename(columns={DataKind.DAY_TYPE: month}),
                            dims=(DataKind.DAY_OF_MONTH.value, DataKind.MONTH.value)) for month, df in
-            ref_df.groupby(ref_df.index.month)], dim=DataKind.MONTH.value)
+            ref_df.groupby(ref_df.index.month)], dim=DataKind.MONTH.value, join="outer")
 
 
 class ExtractDayCountInTimeframe(Extract):
@@ -121,8 +121,8 @@ class ExtractDayCountInTimeframe(Extract):
         dataset = xr.concat([OmnesDataArray(unique_numbers[1], dims=DataKind.DAY_TYPE.value,
                                             coords={DataKind.DAY_TYPE.value: unique_numbers[0]}).expand_dims(
             {DataKind.MONTH.value: [i, ]}) for i, da in enumerate(dataset.T, 1) if
-            (unique_numbers := np.unique(da, return_counts=True))], dim=DataKind.MONTH.value).drop(
-            dim=DataKind.DAY_TYPE.value, labels=np.nan).fillna(0).astype(int)
+            (unique_numbers := np.unique(da, return_counts=True))], dim=DataKind.MONTH.value,
+            join="outer").drop_sel({DataKind.DAY_TYPE.value: [np.nan]}, errors="ignore").fillna(0).astype(int)
         return dataset.assign_coords({DataKind.DAY_TYPE.value: dataset[DataKind.DAY_TYPE.value].astype(int)})
 
 
@@ -136,7 +136,8 @@ class ExtractTimeOfUseTimeSlotCountByDayType(Extract):
         return xr.concat([OmnesDataArray(unique_numbers[1], dims=DataKind.TARIFF_TIME_SLOT.value,
                                          coords={DataKind.TARIFF_TIME_SLOT.value: unique_numbers[0]}).expand_dims(
             {DataKind.DAY_TYPE.value: [i, ]}) for i, a in enumerate(dataset.values) if
-            (unique_numbers := np.unique(a, return_counts=True))], dim=DataKind.DAY_TYPE.value).fillna(0)
+            (unique_numbers := np.unique(a, return_counts=True))], dim=DataKind.DAY_TYPE.value,
+            join="outer").fillna(0)
 
 
 class ExtractTimeOfUseTimeSlotCountByMonth(Extract):

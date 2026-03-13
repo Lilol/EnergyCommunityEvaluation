@@ -62,8 +62,9 @@ class AddYearlyConsumptionToBillData(Combine):
                                                                                           "time_of_use_labels", str),
                                                            DataKind.ANNUAL_ENERGY]}).sum(
             dim=DataKind.USER.value).assign_coords({DataKind.USER.value: u}) for u, ds in
-                        data_bills.groupby(DataKind.USER.value)], dim=DataKind.USER.value).astype(float)
-        return xr.concat([dd, dataset.T], dim=DataKind.USER_DATA.value)
+                        data_bills.groupby(DataKind.USER.value)], dim=DataKind.USER.value,
+                       join="outer").astype(float)
+        return xr.concat([dd, dataset.T], dim=DataKind.USER_DATA.value, join="outer")
 
 
 class Merge(Combine):

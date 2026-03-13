@@ -101,10 +101,10 @@ class TransformCoordinateIntoDimension(Transform):
         value = next(iter(coordinate.values()))
         if self.are_values_unique(dataset.sel(coordinate)):
             dataset = dataset.rename({to_replace_dimension: new_dimension_name}).assign_coords(
-                {new_dimension_name: np.unique(dataset.sel(coordinate))}).drop(labels=value, dim=key)
+                {new_dimension_name: np.unique(dataset.sel(coordinate))}).drop_sel({key: value})
         else:
-            dataset = dataset.assign_coords({to_replace_dimension: dataset.sel(coordinate).squeeze().values}).drop(
-                labels=value, dim=key)
+            dataset = dataset.assign_coords({to_replace_dimension: dataset.sel(coordinate).squeeze().values}).drop_sel(
+                {key: value})
             dataset = xr.concat([df.expand_dims(new_dimension_name).assign_coords(
                 {new_dimension_name: [i, ], to_replace_dimension: range(len(df[to_replace_dimension]))}) for i, df in
                 dataset.groupby(to_replace_dimension)], dim=new_dimension_name)
@@ -119,8 +119,8 @@ class TransformUserData(Transform):
 
     def execute(self, dataset: OmnesDataArray | None, *args, **kwargs) -> OmnesDataArray | None:
         dataset = dataset.rename({"dim_1": DataKind.USER_DATA.value, "dim_0": DataKind.USER.value}).assign_coords(
-            {DataKind.USER.value: dataset.sel({"dim_1": DataKind.USER}).squeeze().values}).drop(labels=DataKind.USER,
-                                                                                                dim=DataKind.USER_DATA.value)
+            {DataKind.USER.value: dataset.sel({"dim_1": DataKind.USER}).squeeze().values}).drop_sel(
+            {DataKind.USER_DATA.value: DataKind.USER})
         dataset.loc[..., DataKind.USER_TYPE] = xr.apply_ufunc(lambda x: UserType(x), dataset.sel(
             {DataKind.USER_DATA.value: DataKind.USER_TYPE}), vectorize=True)
         dataset.loc[..., [DataKind.USER_ADDRESS, DataKind.DESCRIPTION]] = xr.apply_ufunc(lambda x: x.strip(),
@@ -150,8 +150,8 @@ class TransformBills(Transform):
             {"dim_1": DataKind.USER_DATA.value, "dim_0": DataKind.USER.value}))
 
         dataset = dataset.assign_coords(
-            {DataKind.USER.value: dataset.sel({DataKind.USER_DATA.value: DataKind.USER}).squeeze().values}).drop(
-            labels=DataKind.USER, dim=DataKind.USER_DATA.value)
+            {DataKind.USER.value: dataset.sel({DataKind.USER_DATA.value: DataKind.USER}).squeeze().values}).drop_sel(
+            {DataKind.USER_DATA.value: DataKind.USER})
 
         return dataset
 
@@ -197,8 +197,8 @@ class TransformPvPlantData(Transform):
         dataset = dataset.rename({"dim_1": DataKind.USER_DATA.value, "dim_0": DataKind.USER.value})
 
         dataset = dataset.assign_coords(
-            {DataKind.USER.value: dataset.sel({DataKind.USER_DATA.value: DataKind.USER}).squeeze().values}).drop(
-            labels=DataKind.USER, dim=DataKind.USER_DATA.value)
+            {DataKind.USER.value: dataset.sel({DataKind.USER_DATA.value: DataKind.USER}).squeeze().values}).drop_sel(
+            {DataKind.USER_DATA.value: DataKind.USER})
 
         return dataset
 

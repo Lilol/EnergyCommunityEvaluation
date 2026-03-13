@@ -36,7 +36,7 @@ class CheckAnnualSum(Check):
             if time_of_use_consumption.values != annual_consumption.values:
                 logger.warning(
                     f"The sum of time of use energy consumption must match the aggregated consumption for every user and"
-                    f" month, but discrepancy found for annual consumption: {annual_consumption.values} <==> summed time of use "
-                    f"consumption: {time_of_use_consumption.values} for user {user} and month {month}.")
+                    f" month, but discrepancy found for annual consumption: {annual_consumption.values:.2f} <==> summed time of use "
+                    f"consumption: {time_of_use_consumption.values:.2f} for user {user} and month {month}.")
         dataset.loc[..., DataKind.ANNUAL_ENERGY] = dataset.loc[..., time_of_use_labels].sum(DataKind.USER_DATA.value)
         return dataset
