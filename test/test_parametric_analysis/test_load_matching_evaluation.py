@@ -63,6 +63,7 @@ class TestLoadMatchingEvaluation(unittest.TestCase):
         """Test GridLiability calculation"""
         injected = np.array([12.0] * 24)
         withdrawn = np.array([10.0] * 24)
+        total_consumption = np.array([10.0] * 24)
         shared = np.array([5.0] * 24)
 
         coords = {
@@ -70,10 +71,11 @@ class TestLoadMatchingEvaluation(unittest.TestCase):
             DataKind.CALCULATED.value: [
                 PhysicalMetric.SHARED_ENERGY,
                 OtherParameters.INJECTED_ENERGY,
-                OtherParameters.WITHDRAWN_ENERGY
+                OtherParameters.WITHDRAWN_ENERGY,
+                PhysicalMetric.TOTAL_CONSUMPTION,
             ]
         }
-        data = np.array([shared, injected, withdrawn])
+        data = np.array([shared, injected, withdrawn, total_consumption])
         input_da = OmnesDataArray(
             data=data,
             dims=[DataKind.CALCULATED.value, DataKind.TIME.value],
@@ -82,11 +84,61 @@ class TestLoadMatchingEvaluation(unittest.TestCase):
 
         result, value = GridLiability.calculate(input_da)
 
-        # Grid liability = (injected / withdrawn) - 1 = (12*24) / (10*24) - 1 = 0.2
+        # Grid liability = (injected - withdrawn) / total_load = (12-10) / 10 = 0.2
         # value might be OmnesDataArray, extract scalar
         if hasattr(value, 'values'):
             value = float(value.values)
         self.assertAlmostEqual(value, 0.2, places=5)
+
+    def test_grid_liability_negative_when_imports_dominate(self):
+        """GL must be negative when imported energy exceeds exported energy."""
+        injected = np.array([8.0] * 24)
+        withdrawn = np.array([10.0] * 24)
+        total_consumption = np.array([10.0] * 24)
+
+        input_da = OmnesDataArray(
+            data=np.array([injected, withdrawn, total_consumption]),
+            dims=[DataKind.CALCULATED.value, DataKind.TIME.value],
+            coords={
+                DataKind.TIME.value: self.time,
+                DataKind.CALCULATED.value: [
+                    OtherParameters.INJECTED_ENERGY,
+                    OtherParameters.WITHDRAWN_ENERGY,
+                    PhysicalMetric.TOTAL_CONSUMPTION,
+                ],
+            },
+        )
+
+        _, value = GridLiability.calculate(input_da)
+        if hasattr(value, 'values'):
+            value = float(value.values)
+        self.assertLess(value, 0.0)
+        self.assertAlmostEqual(value, -0.2, places=5)
+
+    def test_grid_liability_positive_when_exports_dominate(self):
+        """GL must be positive when exported energy exceeds imported energy."""
+        injected = np.array([14.0] * 24)
+        withdrawn = np.array([10.0] * 24)
+        total_consumption = np.array([10.0] * 24)
+
+        input_da = OmnesDataArray(
+            data=np.array([injected, withdrawn, total_consumption]),
+            dims=[DataKind.CALCULATED.value, DataKind.TIME.value],
+            coords={
+                DataKind.TIME.value: self.time,
+                DataKind.CALCULATED.value: [
+                    OtherParameters.INJECTED_ENERGY,
+                    OtherParameters.WITHDRAWN_ENERGY,
+                    PhysicalMetric.TOTAL_CONSUMPTION,
+                ],
+            },
+        )
+
+        _, value = GridLiability.calculate(input_da)
+        if hasattr(value, 'values'):
+            value = float(value.values)
+        self.assertGreater(value, 0.0)
+        self.assertAlmostEqual(value, 0.4, places=5)
 
     def test_self_consumption_with_zero_injected(self):
         """Test SelfConsumption with zero injected energy"""

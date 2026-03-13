@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 
 from pandas import to_datetime, date_range
 
@@ -46,7 +47,9 @@ class DatasetCreatorForParametricEvaluation(ParametricEvaluator):
             # Get total production and consumption data
             # Here we manage monthly ToU values, we sum all end users/plants
             Apply(name=f"Sum users {profile}",
-                  operation=lambda x: x.assign_coords(dim_1=to_datetime(x.dim_1)).sum(DataKind.CALCULATED.value)),
+                  operation=lambda x: x.assign_coords(
+                      dim_1=to_datetime(x.dim_1, format="mixed", dayfirst=True)
+                  ).sum(DataKind.CALCULATED.value)),
             Store(profile))).execute()
 
     @classmethod
@@ -79,12 +82,36 @@ class DatasetCreatorForParametricEvaluation(ParametricEvaluator):
             profile_filename: str
             power_type: DataKind
 
+        def _candidate_paths(name: str) -> tuple[Path, Path]:
+            output_root = Path(configuration.config.get("path", "output")).resolve()
+            municipality = configuration.config.get("rec", "location")
+            flat = output_root / municipality / f"{name}.csv"
+            nested = output_root / DataKind.MUNICIPALITY.value / municipality / f"{name}.csv"
+            return flat, nested
+
         user_types = (ParametricEvaluationUserType("pv_plants", "data_plants_tou", "pv_profiles", "data_plants_year",
                                                    DataKind.PRODUCTION),
                       ParametricEvaluationUserType("families", "data_families_tou", "family_profiles",
                                                    "data_families_year", DataKind.CONSUMPTION_OF_FAMILIES),
                       ParametricEvaluationUserType("users", "data_users_tou", "user_profiles", "data_users_year",
                                                    DataKind.CONSUMPTION_OF_USERS))
+
+        required_input_names = sorted({
+            *(u.filename for u in user_types),
+            *(u.profile_filename for u in user_types),
+        })
+        missing_inputs = []
+        for name in required_input_names:
+            if not any(path.exists() for path in _candidate_paths(name)):
+                missing_inputs.append(name)
+        if missing_inputs:
+            output_root = Path(configuration.config.get("path", "output")).resolve().as_posix()
+            raise FileNotFoundError(
+                "Missing preprocessing output tables required for parametric evaluation: "
+                f"{', '.join(missing_inputs)}. Expected under '{output_root}/<municipality>/' "
+                f"or '{output_root}/{DataKind.MUNICIPALITY.value}/<municipality>/'."
+            )
+
         for user in user_types:
             cls.create_and_run_user_data_processing_pipeline(user.user_type, user.filename)
             cls.create_and_run_timeseries_processing_pipeline(user.profile_type, user.profile_filename)

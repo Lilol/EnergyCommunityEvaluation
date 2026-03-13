@@ -4,7 +4,7 @@ A framework for evaluating energy communities using household consumption, PV ge
 
 ---
 
-## 📚 How to Cite
+## How to Cite
 
 If you use this framework in your research, please cite it as:
 
@@ -23,19 +23,20 @@ Alternatively, you can cite it in text as:
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
-- [How to Cite](#-how-to-cite)
-- [Features](#-features)
+- [How to Cite](#how-to-cite)
+- [Features](#features)
+- [Google Colab Demo](#google-colab-demo)
 - [Setup Guide](#setup-guide)
-  - [Preprocessing](#-preprocessing)
-  - [Parametric Evaluation](#-parametric-evaluation)
-  - [Renewable Energy Community Evaluation](#-renewable-energy-community-evaluation)
-- [Contact](#-contact)
+  - [Preprocessing](#preprocessing)
+  - [Parametric Evaluation](#parametric-evaluation)
+  - [Renewable Energy Community Evaluation](#renewable-energy-community-evaluation)
+- [Contact](#contact)
 
 ---
 
-## ✨ Features
+## Features
 
 - **Data Preprocessing**: Automated processing of household consumption, PV generation, and billing data
 - **Parametric Analysis**: Comprehensive evaluation of energy communities with varying parameters
@@ -46,9 +47,27 @@ Alternatively, you can cite it in text as:
 
 ---
 
+## Google Colab Demo
+
+A student-friendly Colab workflow is available in the `colab/` folder.
+
+- Notebook: `colab/EnergyCommunityEvaluation_Student_Demo.ipynb`
+- Helper utilities: `colab/demo_setup.py`
+- Notes and quick-start guide: `colab/README.md`
+
+The notebook creates a small synthetic municipality called `ColabTown`, then runs the real `preprocessing.py` and `run_parametric_evaluation.py` entry points so students can explore the full workflow without preparing a large municipal dataset first.
+
+If this repository is hosted on GitHub, you can open the notebook in Colab with:
+
+```text
+https://colab.research.google.com/github/Lilol/EnergyCommunityEvaluation/blob/main/colab/EnergyCommunityEvaluation_Student_Demo.ipynb
+```
+
+---
+
 ## Setup Guide
 
-### 🔍 Preprocessing
+### Preprocessing
 
 #### What `preprocessing.py` Does:
 
@@ -115,7 +134,7 @@ Alternatively, you can cite it in text as:
 
 ---
 
-### ⚙️ Parametric Evaluation
+### Parametric Evaluation
 
 #### What `run_parametric_evaluation.py` Does:
 
@@ -133,7 +152,25 @@ Alternatively, you can cite it in text as:
 
 4. **Exports results** to `.csv`
 
-#### ▶️ How to Run `run_parametric_evaluation.py`
+#### Example result figures
+
+Difference plot:
+
+![Difference Plot](images/difference.png)
+
+Main metrics overview:
+
+![Metrics Plot](images/metrics.png)
+
+Additional metrics comparison:
+
+![Metrics Plot 2](images/metrics2.png)
+
+Time-aggregation view:
+
+![Time Aggregation Plot](images/time_aggregation.png)
+
+#### How to Run `run_parametric_evaluation.py`
 
 1. Clone the repo to your project root: `<root>`
 2. Copy the config:
@@ -187,20 +224,20 @@ Alternatively, you can cite it in text as:
 
 ---
 
-### 🌱 Renewable Energy Community Evaluation
+### Renewable Energy Community Evaluation
 
 *Coming soon: Detailed evaluation of renewable energy community configurations and performance metrics.*
 
 ---
 
-## 📬 Contact
+## Contact
 
-🛠 **Maintained by**: Lilla Barancsuk  
-🔗 **GitHub**: https://github.com/Lilol  
-📧 **Issues**: Please report bugs and feature requests via [GitHub Issues](https://github.com/Lilol/EnergyCommunityEvaluation/issues)
+**Maintained by**: Lilla Barancsuk  
+**GitHub**: https://github.com/Lilol  
+**Issues**: Please report bugs and feature requests via [GitHub Issues](https://github.com/Lilol/EnergyCommunityEvaluation/issues)
 
 ---
 
-## 📄 License
+## License
 
 See [LICENSE](LICENSE) file for details.
