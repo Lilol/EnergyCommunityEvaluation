@@ -49,18 +49,18 @@ Alternatively, you can cite it in text as:
 
 ## Google Colab Demo
 
-A student-friendly Colab workflow is available in the `colab/` folder.
+A Colab workflow is available in the `colab/` folder.
 
-- Notebook: `colab/EnergyCommunityEvaluation_Student_Demo.ipynb`
+- Notebook: `colab/EnergyCommunityEvaluation_Demo.ipynb`
 - Helper utilities: `colab/demo_setup.py`
 - Notes and quick-start guide: `colab/README.md`
 
-The notebook creates a small synthetic municipality called `ColabTown`, then runs the real `preprocessing.py` and `run_parametric_evaluation.py` entry points so students can explore the full workflow without preparing a large municipal dataset first.
+The notebook creates a small synthetic municipality called `ColabTown`, then runs the real `preprocessing.py` and `run_parametric_evaluation.py` entry points so users can explore the full workflow without preparing a large municipal dataset first.
 
 If this repository is hosted on GitHub, you can open the notebook in Colab with:
 
 ```text
-https://colab.research.google.com/github/Lilol/EnergyCommunityEvaluation/blob/main/colab/EnergyCommunityEvaluation_Student_Demo.ipynb
+https://colab.research.google.com/github/Lilol/EnergyCommunityEvaluation/blob/main/colab/EnergyCommunityEvaluation_Demo.ipynb
 ```
 
 ---
